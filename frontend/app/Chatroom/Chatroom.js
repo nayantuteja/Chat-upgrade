@@ -22,6 +22,13 @@ function Chatroom() {
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
   const contentEditableRef = useRef(null);
   const imageRef = useRef(null);
+  const [isHolding, setIsHolding] = useState(false);
+  const [dragStartPoint, setDragStartPoint] = useState({ x: 0, y: 0 });
+  const [imageDragging, setImageDragging] = useState(false);
+
+
+
+
 
   useEffect(() => {
     console.log("1")
@@ -29,7 +36,7 @@ function Chatroom() {
     console.log("Mobile", isMobile)
     setMaxZoom(isMobile ? 10 : 2);
   }, []);
-
+  //console.log("imgaeeee", imagePosition,setImagePosition)
   useEffect(() => {
     console.log("2")
     socket.on("connect", () => {
@@ -64,6 +71,7 @@ function Chatroom() {
     console.log("3")
     if (viewingImage) {
       const handleResize = () => {
+        console.log("chalaaa")
         if (imageRef.current) {                // check if the image element is available
           // imgRect will be an object containing properties like width and height.
           const imgRect = imageRef.current.getBoundingClientRect();  //getBoundingClientRect() provides the size of the image and its position relative to the viewport.
@@ -71,12 +79,15 @@ function Chatroom() {
           const viewportHeight = window.innerHeight;
           const imgWidth = imgRect.width;
           const imgHeight = imgRect.height;
-          console.log("check",imgRect,viewportWidth,viewportHeight)
-          console.log("check2",imgWidth,imgHeight)
+          console.log("check", viewportWidth, viewportHeight)
+          console.log("check2", imgWidth, imgHeight)
+          console.log("container pos x, y", (viewportWidth - imgWidth) / 2, (viewportHeight - imgHeight) / 2)
+          console.log("container pos x, y", (viewportWidth - imgWidth), (viewportHeight - imgHeight))
           setImagePosition({                        // Calculate initial position to center the image
             x: (viewportWidth - imgWidth) / 2,
             y: (viewportHeight - imgHeight) / 2
           });
+      
         }
       };
       handleResize();
@@ -86,6 +97,9 @@ function Chatroom() {
       };
     }
   }, [viewingImage]);
+
+
+
 
   useEffect(() => {
     console.log("4")
@@ -107,73 +121,73 @@ function Chatroom() {
   }, [viewingImage, maxZoom]);
 
 
-  const insertImageIntoContentEditable = (imageUrl) => {  
+  const insertImageIntoContentEditable = (imageUrl) => {
     if (contentEditableRef.current) {
-        const img = document.createElement("img"); 
-        img.src = imageUrl;           
-        img.style.maxWidth = "100%";
-        img.style.maxHeight = "150px";
-        img.style.paddingTop = "2px"; // Add padding to the top
-        img.style.paddingBottom = "2px"; // Add padding to the bottom
-        img.style.cursor = "pointer";
-        img.onclick = () => {
-            setViewingImage(imageUrl);
-            setZoom(1);
-        };
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.style.maxWidth = "100%";
+      img.style.maxHeight = "150px";
+      img.style.paddingTop = "2px"; // Add padding to the top
+      img.style.paddingBottom = "2px"; // Add padding to the bottom
+      // img.style.cursor = "pointer";
+      // img.onclick = () => {
+      //     setViewingImage(imageUrl);
+      //     setZoom(1);
+      // };
 
-        const range = document.createRange();
-        const sel = window.getSelection();
-        range.selectNodeContents(contentEditableRef.current);
-        range.collapse(false);
-        range.insertNode(img);
-        range.setStartAfter(img);  // Move the cursor after the image
-        range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
-        contentEditableRef.current.focus();  // Focus the contentEditable element
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(contentEditableRef.current);
+      range.collapse(false);
+      range.insertNode(img);
+      range.setStartAfter(img);  // Move the cursor after the image
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      contentEditableRef.current.focus();  // Focus the contentEditable element
     }
-};
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault();              
+    e.preventDefault();
 
     if (contentEditableRef.current) {  // get the inner Html of the div and set the div to contenteditable = true
 
-        const contentHtml = contentEditableRef.current.innerHTML.trim(); // Trim whitespace from both ends
-        const messageData = { message: contentHtml, room, userName }; 
+      const contentHtml = contentEditableRef.current.innerHTML.trim(); // Trim whitespace from both ends
+      const messageData = { message: contentHtml, room, userName };
 
-        // Check if there are any images to process
-        if (images.length > 0) {
-            const readers = images.map((img) => {
-                const reader = new FileReader();         //FileReader is used to read each image file
-                return new Promise((resolve) => {
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(img);           // readAsDataURL converts the file into data URL string
-                });
-            });
-            Promise.all(readers).then((imageResults) => {          // when promise is resolved then executes the callback function .then part
-                // Send the message with images included as HTML
-                socket.emit("message", { ...messageData, images: imageResults });      // send mwssage data and image data URL (imageresult)
-                setMessage("");
-                setImages([]); 
-                setImagePreviews([]); 
-                contentEditableRef.current.innerHTML = ""; // Clear the contentEditable div
-            });
-        } else if (contentHtml !== "" && contentHtml.replace(/<[^>]*>/g, '').trim() !== "") {    // to check its valid message or empty html
-            // Send the content with text only
-            socket.emit("message", messageData);
-            setMessage("");
-            contentEditableRef.current.innerHTML = ""; // Clear the contentEditable div
-        } else {  
-            return;           // If there's no content and no images, do nothing
-        }
+      // Check if there are any images to process
+      if (images.length > 0) {
+        const readers = images.map((img) => {
+          const reader = new FileReader();         //FileReader is used to read each image file
+          return new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(img);           // readAsDataURL converts the file into data URL string
+          });
+        });
+        Promise.all(readers).then((imageResults) => {          // when promise is resolved then executes the callback function .then part
+          // Send the message with images included as HTML
+          socket.emit("message", { ...messageData, images: imageResults });      // send mwssage data and image data URL (imageresult)
+          setMessage("");
+          setImages([]);
+          setImagePreviews([]);
+          contentEditableRef.current.innerHTML = ""; // Clear the contentEditable div
+        });
+      } else if (contentHtml !== "" && contentHtml.replace(/<[^>]*>/g, '').trim() !== "") {    // to check its valid message or empty html
+        // Send the content with text only
+        socket.emit("message", messageData);
+        setMessage("");
+        contentEditableRef.current.innerHTML = ""; // Clear the contentEditable div
+      } else {
+        return;           // If there's no content and no images, do nothing
+      }
     }
-};
+  };
 
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const files = Array.from(e.dataTransfer.files);                
+    const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
       const newImages = [...images, ...files];             // creates a array of existing image and newly dropped files
       setImages(newImages);
@@ -181,7 +195,7 @@ function Chatroom() {
         const reader = new FileReader();
         return new Promise((resolve) => {
           reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(file);                       
+          reader.readAsDataURL(file);
         });
       });
 
@@ -223,259 +237,175 @@ function Chatroom() {
   };
 
 
-// only backspace issue
-// const handleContentChange = (e) => {
-//   const contentEditableElement = e.currentTarget;
-//   const selection = window.getSelection();
-//   const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange();
+  // we wala
+  const handleContentChange = (e) => {
+    const contentEditableElement = e.currentTarget;
+    const selection = window.getSelection();
+    const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange();
 
-//   // Save the current cursor position
-//   const cursorPosition = {
-//     offset: range.startOffset,
-//     container: range.startContainer,
-//     rects: range.getClientRects(),
-//   };
+    // Save the current cursor position
+    const cursorPosition = {
+      offset: range.startOffset,
+      container: range.startContainer,
+    };
 
-//   // Function to color URLs in the text
-//   const colorUrls = (text) => {
-//     const urlRegex = /https:\/\/([^\/\.]+)\.([^\/\s]+(?:\/[^\s]*)?)/gi;
-//     return text.replace(urlRegex, (url) => `<span style="color: blue;">${url}</span>`);
-//   };
+    // Function to color URLs in the text
+    const colorUrls = (text) => {
+      const urlRegex = /https:\/\/([^\/\.]+)\.([^\/\s]+(?:\/[^\s]*)?)/gi;
+      return text;
+    };
 
-//   // Function to process nodes and maintain structure
-//   const processNodes = (node) => {
-//     if (node.nodeType === Node.TEXT_NODE) {
-//       return colorUrls(node.textContent);
-//     } else if (node.nodeType === Node.ELEMENT_NODE) {
-//       if (node.nodeName === 'IMG') {
-//         return node.outerHTML; // Preserve <img> tags as HTML
-//       }
-//       // For other elements, convert their content to plain text, preserving structure
-//       const tagName = node.nodeName.toLowerCase();
-//       const childrenContent = Array.from(node.childNodes).map(processNodes).join('');
-//       return childrenContent; // Only process children content, no tag wrapping
-//     }
-//     return '';
-//   };
-
-//   // Process the content and update contentEditable element
-//   const content = contentEditableElement.innerHTML;
-//   const newContent = processNodes(new DOMParser().parseFromString(content, 'text/html').body);
-  
-//   // Update the contentEditable element
-//   contentEditableElement.innerHTML = newContent;
-
-//   // Restore cursor position
-//   const restoreCursor = () => {
-//     const selection = window.getSelection();
-//     const newRange = document.createRange();
-//     let found = false;
-
-//     // Attempt to restore cursor position based on the saved rects
-//     if (cursorPosition.rects.length > 0) {
-//       const firstRect = cursorPosition.rects[0];
-//       const allTextNodes = Array.from(contentEditableElement.childNodes);
-//       let cursorNode = null;
-
-//       // Try to find the correct text node to restore cursor
-//       for (const node of allTextNodes) {
-//         if (node.nodeType === Node.TEXT_NODE) {
-//           const nodeRange = document.createRange();
-//           nodeRange.selectNodeContents(node);
-//           if (nodeRange.getBoundingClientRect().top === firstRect.top) {
-//             cursorNode = node;
-//             break;
-//           }
-//         }
-//       }
-
-//       if (cursorNode) {
-//         newRange.setStart(cursorNode, cursorPosition.offset);
-//         newRange.collapse(true);
-//         found = true;
-//       }
-//     }
-
-//     if (found) {
-//       selection.removeAllRanges();
-//       selection.addRange(newRange);
-//       contentEditableElement.focus();
-//     } else {
-//       // Fallback if the cursor position cannot be restored
-//       selection.removeAllRanges();
-//       contentEditableElement.focus();
-//     }
-//   };
-
-//   restoreCursor();
-// };
-
-// we wala
-const handleContentChange = (e) => {
-  const contentEditableElement = e.currentTarget;
-  const selection = window.getSelection();
-  const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange();
-
-  // Save the current cursor position
-  const cursorPosition = {
-    offset: range.startOffset,
-    container: range.startContainer,
-  };
-
-  // Function to color URLs in the text
-  const colorUrls = (text) => {
-    const urlRegex = /https:\/\/([^\/\.]+)\.([^\/\s]+(?:\/[^\s]*)?)/gi;
-    return text;
-  };
-
-  // Function to process nodes and maintain structure
-  const processNodes = (node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      // Replace text content with colored URLs
-      const newTextContent = colorUrls(node.textContent);
-      if (newTextContent !== node.textContent) {
-        // Replace text node with a new span containing the formatted text
-        const newSpan = document.createElement('span');
-        newSpan.innerHTML = newTextContent;
-        node.replaceWith(...newSpan.childNodes);
+    const processNodes = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        // Replace text content with colored URLs
+        const newTextContent = colorUrls(node.textContent);
+        if (newTextContent !== node.textContent) {
+          // Replace text node with a new span containing the formatted text
+          const newSpan = document.createElement('span');
+          newSpan.innerHTML = newTextContent;
+          node.replaceWith(...newSpan.childNodes);
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.nodeName === 'IMG') {
+          // Do nothing, preserve <img> tags as HTML
+          return;
+        } else {
+          // Convert element's content to plain text
+          const plainText = node.innerText;
+    
+          // Process the plain text to color URLs
+          const coloredText = colorUrls(plainText);
+    
+          // Replace the element with a new text node containing the colored text
+          const newTextNode = document.createTextNode(coloredText);
+          node.replaceWith(newTextNode);
+        }
       }
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.nodeName === 'IMG') {
-        // Do nothing, preserve <img> tags as HTML
-        return;
-      } 
-      // Process children of other elements
-      Array.from(node.childNodes).forEach(processNodes);
-    }
+    };
+    
+    // Process the content without replacing the entire innerHTML
+    // [Text, Img, text, <div><span>text</span></div>]
+    Array.from(contentEditableElement.childNodes).forEach(processNodes);
+    
+
+
+    // Restore cursor position
+    const restoreCursor = () => {
+      const newRange = document.createRange();
+      newRange.setStart(cursorPosition.container, cursorPosition.offset);
+      newRange.collapse(true);
+
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    };
+
+    restoreCursor();
   };
 
-  // Process the content without replacing the entire innerHTML
-  // [Text, Img, text, <div><span>text</span></div>]
-  Array.from(contentEditableElement.childNodes).forEach(processNodes);
 
-  // Restore cursor position
-  const restoreCursor = () => {
-    const newRange = document.createRange();
-    newRange.setStart(cursorPosition.container, cursorPosition.offset);
-    newRange.collapse(true);
+  const handlePaste = (e) => {
+    const items = e.clipboardData.items;
+    const files = [];
 
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-  };
-
-  restoreCursor();
-};
-
-
-// document.addEventListener('DOMContentLoaded', function() {
-//   const contentEditableElement = document.getElementById('chatroomContent');
-
-//   if (contentEditableElement) {
-//     contentEditableElement.addEventListener('paste', function(e) {
-//       e.preventDefault();
-      
-//       // Get the clipboard data
-//       const clipboardData = e.clipboardData || window.clipboardData;
-      
-//       // Extract plain text from clipboard data
-//       const text = clipboardData.getData('text/plain');
-      
-//       // Insert the plain text at the current cursor position
-//       const selection = window.getSelection();
-//       const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : document.createRange();
-//       range.deleteContents(); // Remove any selected content
-//       range.insertNode(document.createTextNode(text));
-//     });
-
-//     // Attach the handleContentChange function to the input event
-//     contentEditableElement.addEventListener('input', handleContentChange);
-//   } else {
-//     console.error('Element with specified ID not found');
-//   }
-// });
-
-
-
-
-
-
-const handlePaste = (e) => {
-  const items = e.clipboardData.items;
-  const files = [];
-
-  for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
       if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          files.push(file);
+        const file = item.getAsFile();
+        files.push(file);
       }
-  }
+    }
 
-  if (files.length > 0) {
+    if (files.length > 0) {
       handleFiles(files);
       e.preventDefault(); // Prevent the default paste behavior
       contentEditableRef.current.focus();  // Maintain focus after pasting
-  }
-};
+    }
+  };
 
-const handleFiles = (files) => {
-  const newImages = [...images, ...files];
-  setImages(newImages);
+  const handleFiles = (files) => {
+    const newImages = [...images, ...files];
+    setImages(newImages);
 
-  const readers = files.map((file) => {
-    const reader = new FileReader();
-    return new Promise((resolve) => {
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(file);
+    const readers = files.map((file) => {
+      const reader = new FileReader();
+      return new Promise((resolve) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
     });
-  });
 
-  Promise.all(readers).then((previews) => {
-    setImagePreviews([...imagePreviews, ...previews]);
-    previews.forEach((preview) => insertImageIntoContentEditable(preview));
-  });
-};
+    Promise.all(readers).then((previews) => {
+      setImagePreviews([...imagePreviews, ...previews]);
+      previews.forEach((preview) => insertImageIntoContentEditable(preview));
+    });
+  };
 
-useEffect(() => {
-  const editable = contentEditableRef.current;
+  useEffect(() => {
+    const editable = contentEditableRef.current;
 
-  if (editable) {
-    editable.addEventListener('paste', handlePaste);
+    if (editable) {
+      editable.addEventListener('paste', handlePaste);
 
-    return () => {
-      editable.removeEventListener('paste', handlePaste);
-    };
-  }
-}, [images]);
-
+      return () => {
+        editable.removeEventListener('paste', handlePaste);
+      };
+    }
+  }, [images]);
 
 
 
 
   const handleMouseDown = (e) => {
     e.preventDefault();
-    const startX = e.clientX;  
-    const startY = e.clientY;
-    const startPos = { ...imagePosition };          //create a copy of current position
-    console.log("X,Y",startX,startY)
-
-    const handleMouseMove = (moveEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      setImagePosition({
-        x: startPos.x + dx,
-        y: startPos.y + dy
-      });
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    setIsHolding(true);
+    setDragStartPoint({ x: e.clientX, y: e.clientY });
+    setImageDragging(false);
+    console.log("Hold chexk", isHolding)
   };
+
+  const handleMouseMove = (e) => {
+    if (!isHolding) return;
+    console.log("holding check agian",isHolding)
+
+    const dx = e.clientX - dragStartPoint.x;
+    const dy = e.clientY - dragStartPoint.y;
+
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      setImageDragging(true);
+    }
+
+    if (imageDragging) {
+      setImagePosition(prevPosition => ({
+        x: prevPosition.x + dx,
+        y: prevPosition.y + dy
+      }));
+      setDragStartPoint({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    console.log("working")
+    if (isHolding && !imageDragging) {
+      // This was a click, not a drag
+      setZoom(1);
+    }
+    setIsHolding(false);
+    setImageDragging(true);
+  };
+
+  useEffect(() => {
+    // Add global event listeners
+   // window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    // Cleanup function to remove event listeners
+    return () => {
+     // window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isHolding, imageDragging]); // Dependencies for the effect
+
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -487,68 +417,68 @@ useEffect(() => {
 
   const renderMessage = (text, images) => {
     // const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|]|(www\.)[^\s]+)[^>]/gi; 
-    const urlPattern = /\b(?:https?|ftp|file):\/\/[^\s<>"'()]+(?=\s|$|(?=<))|(?<![\w.-])www\.[^\s<>"'()]+(?=\s|$|(?=<))/gi; 
+    const urlPattern = /\b(?:https?|ftp|file):\/\/[^\s<>"'()]+(?=\s|$|(?=<))|(?<![\w.-])www\.[^\s<>"'()]+(?=\s|$|(?=<))/gi;
     let parts = [];       // used to store text,link and images
     let lastIndex = 0;
     let match;            // used to store the url patterns
-  
+
     // Function to add onClick to images in the text and style them as block elements
     const addOnClickToImages = (html) => {
-        return html.replace(/<img\s([^>]*?)src=["']([^"']*)["']([^>]*?)>/gi, (match, p1, src, p2) => {
-            return `<img ${p1}src="${src}"${p2} style="display:block;cursor:pointer;max-width:100%;max-height:150px;" onclick="window.handleImageClick('${src}')" />`;
-        });
+      return html.replace(/<img\s([^>]*?)src=["']([^"']*)["']([^>]*?)>/gi, (match, p1, src, p2) => {
+        return `<img ${p1}src="${src}"${p2} style="display:block;cursor:pointer;max-width:100%;max-height:150px;" onclick="window.handleImageClick('${src}')" />`;
+      });
     };
 
     while ((match = urlPattern.exec(text)) !== null) {       // iterates through message searching for URL using the URLPatern
-        const url = match[0];
-        if (match.index > lastIndex) {                      // if there is text betwwen 2 image it pushes the message in parts array
-            parts.push(text.substring(lastIndex, match.index));
-        }
+      const url = match[0];
+      if (match.index > lastIndex) {                      // if there is text betwwen 2 image it pushes the message in parts array
+        parts.push(text.substring(lastIndex, match.index));
+      }
 
-        const href = url.startsWith('www.') ? `http://${url}` : url;
-        parts.push(
-            <a
-                key={url}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'blue', textDecoration: 'underline' }}
-            >
-                {url}
-            </a>
-        );
-        lastIndex = match.index + match[0].length;               //check if there is text after last url match it pushes to parts
+      const href = url.startsWith('www.') ? `http://${url}` : url;
+      parts.push(
+        <a
+          key={url}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'blue', textDecoration: 'underline' }}
+        >
+          {url}
+        </a>
+      );
+      lastIndex = match.index + match[0].length;               //check if there is text after last url match it pushes to parts
     }
-  
+
     if (lastIndex < text.length) {
-        parts.push(text.substring(lastIndex));
+      parts.push(text.substring(lastIndex));
     }
 
     return (
-        <div>
-            {parts.map((part, index) => {
-                if (typeof part === 'string' && !urlPattern.test(part)) {
-                    // Render non-URL parts as HTML with onclick for images
-                    const htmlWithOnClick = addOnClickToImages(part);
-                    return (
-                        <span key={index} dangerouslySetInnerHTML={{ __html: htmlWithOnClick }} />
-                    );
-                } else {
-                    // Render URLs directly
-                    return part;
-                }
-            })}
-        </div>
+      <div>
+        {parts.map((part, index) => {
+          if (typeof part === 'string' && !urlPattern.test(part)) {
+            // Render non-URL parts as HTML with onclick for images
+            const htmlWithOnClick = addOnClickToImages(part);
+            return (
+              <span key={index} dangerouslySetInnerHTML={{ __html: htmlWithOnClick }} />
+            );
+          } else {
+            // Render URLs directly
+            return part;
+          }
+        })}
+      </div>
     );
   };
-  
 
-// Global handler for image click
-window.handleImageClick = (src) => {
-  // Your logic to handle image click, e.g., set viewing state
-  setViewingImage(src);
-  setZoom(1);
-};
+
+  // Global handler for image click
+  window.handleImageClick = (src) => {
+    // Your logic to handle image click, e.g., set viewing state
+    setViewingImage(src);
+    setZoom(1);
+  };
 
 
 
@@ -600,7 +530,7 @@ window.handleImageClick = (src) => {
                 className="hidden"
               />
               <div
-              
+
                 ref={contentEditableRef}
                 contentEditable
                 onInput={handleContentChange}
@@ -614,7 +544,7 @@ window.handleImageClick = (src) => {
                   overflowWrap: 'break-word',
                   overflowY: 'auto',
                   maxHeight: '150px', // Adjust the max height to fit your needs
-                }} 
+                }}
               />
               <label htmlFor="fileInput" className="cursor-pointer flex-shrink-0">
                 <Image src="https://www.svgrepo.com/show/490988/attachment.svg" alt="Attachment" width={50} height={50} />
@@ -626,41 +556,44 @@ window.handleImageClick = (src) => {
           </form>
         </div>
       </div>
+
       {viewingImage && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
+          className="image-viewer-overlay"
           onClick={(e) => e.currentTarget === e.target && setViewingImage(null)}
+          onMouseUp={handleMouseUp}
         >
           <div
-            className="relative"
+            className="image-viewer-container "
             style={{
-              maxWidth: '90%',
-              maxHeight: '90%',
-              cursor: 'grab',
-              position: 'absolute',
-              top: `${imagePosition.y}px`,
-              left: `${imagePosition.x}px`,
+            
+              // cursor: "pointer",
             }}
-            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+            onClick={(e) => e.currentTarget === e.target && setViewingImage(null)}
           >
             <img
-              onClick={(e) => e.currentTarget === e.target && setZoom(1)}
               ref={imageRef}
               src={viewingImage}
               alt="Viewing"
+              className="image-viewer-img"
               style={{
+                position: 'absolute',
+                top: `${imagePosition.y}px`,
+                left: `${imagePosition.x}px`,
                 transform: `scale(${zoom})`,
-                transformOrigin: 'center',
-                maxWidth: '100%',
-                maxHeight: '100%',
-                transition: 'transform 0.2s ease-in-out',
-                zIndex: 9999
+                cursor: isHolding ? 'grabbing' : 'grab',
               }}
+    onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+     // onMouseUp={handleMouseUp}
               onLoad={handleImageLoad}
             />
           </div>
         </div>
       )}
+
+
     </div>
   );
 }
