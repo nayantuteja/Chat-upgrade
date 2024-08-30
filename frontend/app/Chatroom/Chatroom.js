@@ -210,25 +210,7 @@ function Chatroom() {
     e.preventDefault();
     e.stopPropagation();
   };
-  const handleImageChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      const newImages = [...images, ...files];
-      setImages(newImages);
-      const readers = files.map((file) => {
-        const reader = new FileReader();
-        return new Promise((resolve) => {
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        });
-      });
 
-      Promise.all(readers).then((previews) => {
-        setImagePreviews([...imagePreviews, ...previews]);
-        previews.forEach((preview) => insertImageIntoContentEditable(preview));
-      });
-    }
-  };
 
 
   const handleImageLoad = (e) => {
@@ -303,56 +285,53 @@ function Chatroom() {
   };
 
 
-  const handlePaste = (e) => {
-    const items = e.clipboardData.items;
-    const files = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        files.push(file);
-      }
-    }
-
-    if (files.length > 0) {
-      handleFiles(files);
-      e.preventDefault(); // Prevent the default paste behavior
-      contentEditableRef.current.focus();  // Maintain focus after pasting
-    }
-  };
-
   const handleFiles = (files) => {
-    const newImages = [...images, ...files];
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));    // chechks the MIME type that starts with '/image"
+
+    if (imageFiles.length === 0) {
+       console.log("No valid image files selected");
+       return;
+    }
+
+    const newImages = [...images, ...imageFiles];
     setImages(newImages);
 
-    const readers = files.map((file) => {
-      const reader = new FileReader();
-      return new Promise((resolve) => {
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
+    const readers = imageFiles.map((file) => {
+       const reader = new FileReader();
+       return new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+       });
     });
 
     Promise.all(readers).then((previews) => {
-      setImagePreviews([...imagePreviews, ...previews]);
-      previews.forEach((preview) => insertImageIntoContentEditable(preview));
+       setImagePreviews([...imagePreviews, ...previews]);
+       previews.forEach((preview) => insertImageIntoContentEditable(preview));
     });
-  };
+ };
 
-  useEffect(() => {
-    const editable = contentEditableRef.current;
-
-    if (editable) {
-      editable.addEventListener('paste', handlePaste);
-
-      return () => {
-        editable.removeEventListener('paste', handlePaste);
-      };
+ const handlePaste = (e) => {
+    const items = e.clipboardData.items;
+    const files = [];
+    for (let i = 0; i < items.length; i++) {
+       const item = items[i];
+       if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          files.push(file);
+       }
     }
-  }, [images]);
 
+    if (files.length > 0) {
+       handleFiles(files);
+       e.preventDefault(); // Prevent the default paste behavior
+       contentEditableRef.current.focus();
+    }
+ };
+
+ const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    handleFiles(files);
+ };
 
 
 
@@ -417,6 +396,7 @@ function Chatroom() {
 
   const renderMessage = (text, images) => {
     // const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|]|(www\.)[^\s]+)[^>]/gi; 
+    text = text.replace(/&nbsp;/g, ' ');
     const urlPattern = /\b(?:https?|ftp|file):\/\/[^\s<>"'()]+(?=\s|$|(?=<))|(?<![\w.-])www\.[^\s<>"'()]+(?=\s|$|(?=<))/gi;
     let parts = [];       // used to store text,link and images
     let lastIndex = 0;
@@ -535,12 +515,14 @@ function Chatroom() {
                 contentEditable
                 onInput={handleContentChange}
                 onDrop={handleDrop}
+                onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
                 onDragOver={handleDragOver}
                 className="flex-grow bg-white border rounded-lg px-4 py-2"
                 placeholder="Type your message..."
                 style={{
-                  whiteSpace: 'pre-wrap',
+                  //whiteSpace: 'pre-wrap',
+                  whiteSpace: 'break-spaces',
                   overflowWrap: 'break-word',
                   overflowY: 'auto',
                   maxHeight: '150px', // Adjust the max height to fit your needs

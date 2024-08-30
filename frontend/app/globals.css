@@ -63,8 +63,9 @@ button[type="submit"] {
 }
 
 .preserve-whitespace {
-  white-space: pre-wrap; /* Preserves white spaces and line breaks */
+  /* white-space: pre-wrap; Preserves white spaces and line breaks */
   word-wrap: break-word; /* Breaks long words if necessary */
+  white-space: break-spaces;
 }
 
 /* Add this CSS to your global styles or a CSS module */
